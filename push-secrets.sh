@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Ensure files exist before trying to upload
-if [[ ! -f "config.s3.tfbackend" || ! -f "terraform.tfvars" ]]; then
+if [[ ! -f "opentofu/config.s3.tfbackend" || ! -f "opentofu/terraform.tfvars" || ! -f "ansible/group_vars/all" ]]; then
     echo "Error: config.s3.tfbackend or terraform.tfvars not found locally."
     exit 1
 fi
@@ -42,7 +42,8 @@ update_note() {
 }
 
 # Run for both files
-update_note "Homelab OpenTofu Backend" "config.s3.tfbackend"
-update_note "Homelab OpenTofu Vars" "terraform.tfvars"
+update_note "Homelab OpenTofu Backend" "opentofu/config.s3.tfbackend"
+update_note "Homelab OpenTofu Vars" "opentofu/terraform.tfvars"
+update_note "Homelab Ansible Vars" "ansible/group_vars/all"
 
 echo "Done. Your vault is now in sync with your local machine."

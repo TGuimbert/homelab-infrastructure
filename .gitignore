@@ -38,3 +38,6 @@ terraform.rc
 
 # Ignore backend configuration
 config.s3.tfbackend
+
+# Ignore Ansible variables
+ansible/group_vars/*

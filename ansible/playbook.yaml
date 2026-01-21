@@ -1,0 +1,116 @@
+---
+- name: Setup NFS Mounts on Proxmox Hosts
+  hosts: proxmox_hosts
+
+  tasks:
+    - name: Ensure .ssh directory exists for root
+      file:
+        path: /root/.ssh
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Add authorized SSH keys for root user
+      authorized_key:
+        user: root
+        key: "{{ item }}"
+        state: present
+      loop:
+        - "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIA8ELMPZWIVpqfdLifNdzuMMEDdZFzqRKuExaFISizYrAAAAC3NzaDpob21lbGFi ssh:homelab"
+        - "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIFxkiB1lHWzPGCF/vlQ3921rXvG3Df78Jo49C3dsN/OFAAAAC3NzaDpob21lbGFi ssh:homelab-secondary"
+
+    - name: Configure SSH daemon for security
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        validate: "/usr/sbin/sshd -t -f %s"
+      loop:
+        - {
+            regexp: "^#?PasswordAuthentication",
+            line: "PasswordAuthentication no",
+          }
+        - {
+            regexp: "^#?PermitRootLogin",
+            line: "PermitRootLogin prohibit-password",
+          }
+        - {
+            regexp: "^#?PubkeyAuthentication",
+            line: "PubkeyAuthentication yes",
+          }
+        - {
+            regexp: "^#?ChallengeResponseAuthentication",
+            line: "ChallengeResponseAuthentication no",
+          }
+      notify: restart sshd
+
+    - name: Install mdns packages
+      apt:
+        name:
+          - systemd-resolved
+          - avahi-daemon
+        state: present
+
+    - name: Ensure resolved directory exists
+      file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Enable MulticastDNS globally
+      ansible.builtin.copy:
+        dest: /etc/systemd/resolved.conf.d/mdns.conf
+        content: |
+          [Resolve]
+          DNS={{ dns_server_ip }}
+          MulticastDNS=yes
+          LLMNR=yes
+        mode: "0644"
+      notify: restart systemd-resolved
+
+    - name: Backup existing resolv.conf and link to systemd-resolved
+      block:
+        - name: Check if resolv.conf is already a symlink
+          ansible.builtin.stat:
+            path: /etc/resolv.conf
+          register: resolv_stat
+
+        - name: Backup original resolv.conf if it is a regular file
+          ansible.builtin.copy:
+            src: /etc/resolv.conf
+            dest: /etc/resolv.conf.backup
+            remote_src: yes
+            mode: "0644"
+          when: resolv_stat.stat.isreg | default(false)
+
+        - name: Create symlink for systemd-resolved stub
+          ansible.builtin.file:
+            src: /run/systemd/resolve/stub-resolv.conf
+            dest: /etc/resolv.conf
+            state: link
+            force: yes
+
+    - name: Ensure systemd-resolved service is started and enabled
+      ansible.builtin.systemd:
+        name: systemd-resolved
+        state: started
+        enabled: true
+
+    - name: Ensure avahi-daemon service is started and enabled
+      ansible.builtin.systemd:
+        name: avahi-daemon
+        state: started
+        enabled: true
+
+  handlers:
+    - name: restart sshd
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted
+
+    - name: restart systemd-resolved
+      ansible.builtin.systemd:
+        name: systemd-resolved
+        state: restarted
