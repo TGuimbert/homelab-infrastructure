@@ -1,3 +1,8 @@
+variable "virtual_environment_api_token" {
+  type        = string
+  description = "The API token of the PVE cluster."
+}
+
 variable "virtual_environment_endpoint" {
   type        = string
   description = "The endpoint of the PVE cluster."

@@ -3,8 +3,9 @@ resource "proxmox_virtual_environment_download_file" "nixos_25_11_minimal_image"
   datastore_id       = "local"
   node_name          = var.node_name
   url                = "https://channels.nixos.org/nixos-25.11/latest-nixos-minimal-x86_64-linux.iso"
-  checksum           = "ac7802f45a628d863bdfa63e0266ffc6a571ba99a869c2f622350a05bd3b4f2f"
+  checksum           = "32d3b32c6f5a74977229eee77b60102459f317b891a5ec563255ac68d7368b09"
   checksum_algorithm = "sha256"
+  upload_timeout     = 60 * 30
 }
 
 resource "proxmox_virtual_environment_hardware_mapping_usb" "printer_mapping" {
@@ -58,7 +59,8 @@ resource "proxmox_virtual_environment_vm" "srv_01" {
   }
 
   network_device {
-    bridge = "vmbr0"
+    bridge      = "vmbr0"
+    mac_address = "BC:24:11:0B:E3:41"
   }
 
   operating_system {
