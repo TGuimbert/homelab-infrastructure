@@ -1,10 +1,11 @@
 resource "proxmox_virtual_environment_download_file" "nixos_25_11_minimal_image" {
   content_type       = "iso"
   datastore_id       = "local"
-  node_name          = var.node_name
+  node_name          = var.node_2
   url                = "https://channels.nixos.org/nixos-25.11/latest-nixos-minimal-x86_64-linux.iso"
   checksum           = "32d3b32c6f5a74977229eee77b60102459f317b891a5ec563255ac68d7368b09"
   checksum_algorithm = "sha256"
+  overwrite          = false
   upload_timeout     = 60 * 30
 }
 
@@ -13,7 +14,7 @@ resource "proxmox_virtual_environment_hardware_mapping_usb" "printer_mapping" {
   map = [
     {
       id   = var.printer_usb_id
-      node = var.node_name
+      node = var.node_2
     },
   ]
 }
@@ -23,7 +24,7 @@ resource "proxmox_virtual_environment_vm" "srv_01" {
   description = "Managed by OpenTofu"
   tags        = ["opentofu", "nixos"]
 
-  node_name = var.node_name
+  node_name = var.node_2
   vm_id     = 110
 
   agent {
@@ -60,7 +61,7 @@ resource "proxmox_virtual_environment_vm" "srv_01" {
 
   network_device {
     bridge      = "vmbr0"
-    mac_address = "BC:24:11:0B:E3:41"
+    mac_address = var.srv_01_mac
   }
 
   operating_system {
@@ -86,5 +87,58 @@ resource "proxmox_virtual_environment_vm" "srv_01" {
     command = <<EOT
       ssh root@${self.node_name}.local "sed -i '/^usb0: mapping=${proxmox_virtual_environment_hardware_mapping_usb.printer_mapping.name}/ s/$/,optional=1/' /etc/pve/qemu-server/${self.vm_id}.conf"
     EOT
+  }
+}
+
+resource "proxmox_virtual_environment_vm" "home_automation" {
+  name          = "home-automation"
+  description   = "Managed by OpenTofu"
+  tags          = ["opentofu", "homeautomation"]
+  tablet_device = false
+
+  node_name = var.node_1
+  vm_id     = 100
+
+  agent {
+    enabled = true
+  }
+
+  bios       = "ovmf"
+  boot_order = ["scsi0"]
+
+  cpu {
+    cores = 2
+    type  = "host"
+  }
+
+  memory {
+    dedicated = 4096
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    interface    = "scsi0"
+    cache        = "writethrough"
+    discard      = "on"
+    size         = 32
+    ssd          = true
+  }
+
+  efi_disk {
+    datastore_id = "local-lvm"
+    type         = "4m"
+  }
+
+  network_device {
+    bridge      = "vmbr0"
+    mac_address = var.home_automation_mac
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  usb {
+    host = var.home_automation_usb
   }
 }
